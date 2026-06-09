@@ -1,489 +1,100 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小論文添削 - AI採点システム</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+<title>AI小論文添削システム</title>
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
+<script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
 
-        header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
+<style>
 
-        header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
+body{
+  font-family:sans-serif;
+  max-width:1000px;
+  margin:auto;
+  padding:20px;
+  text-align:center;
+}
 
-        header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
+video,
+img{
+  width:100%;
+  max-width:800px;
+  border:2px solid #ccc;
+  border-radius:10px;
+}
 
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
+button{
+  font-size:18px;
+  padding:12px 20px;
+  margin:10px;
+}
 
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
+#status{
+  margin:15px;
+  font-weight:bold;
+}
 
-        .card h2 {
-            color: #333;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+#result{
+  white-space:pre-wrap;
+  text-align:left;
+  border:1px solid #ccc;
+  padding:15px;
+  min-height:150px;
+}
 
-        .step-number {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 35px;
-            height: 35px;
-            background: #667eea;
-            color: white;
-            border-radius: 50%;
-            font-weight: bold;
-            font-size: 1.2em;
-        }
+canvas{
+  display:none;
+}
 
-        /* Camera Section */
-        #cameraContainer {
-            position: relative;
-            width: 100%;
-            margin-bottom: 15px;
-        }
+</style>
 
-        #liveCamera {
-            width: 100%;
-            border-radius: 8px;
-            background: #000;
-            display: block;
-        }
-
-        .camera-controls {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        button {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-primary:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-secondary {
-            background: #f093fb;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #e076e0;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
-        }
-
-        .btn-secondary:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* OCR Section */
-        #capturedImage {
-            width: 100%;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: none;
-            max-height: 300px;
-            object-fit: cover;
-        }
-
-        .ocr-text-area {
-            width: 100%;
-            min-height: 150px;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 1em;
-            resize: vertical;
-            margin-bottom: 15px;
-        }
-
-        .ocr-text-area:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        /* Result Section */
-        .result-section {
-            grid-column: 1 / -1;
-        }
-
-        .result-box {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 20px;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .result-box.active {
-            display: block;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .result-box h3 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .result-content {
-            color: #555;
-            line-height: 1.8;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 30px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .status-message {
-            text-align: center;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: none;
-        }
-
-        .status-message.active {
-            display: block;
-        }
-
-        .status-message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-message.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-
-            header h1 {
-                font-size: 1.8em;
-            }
-
-            .camera-controls {
-                flex-direction: column;
-            }
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .config-warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            color: #856404;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-    </style>
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1>📝 小論文添削システム</h1>
-            <p>AI採点で小論文を瞬時に添削</p>
-        </header>
 
-        <div class="config-warning" id="configWarning">
-            ⚠️ <strong>設定が必要です:</strong> Cloud Functions のエンドポイント URL を設定してください。
-            index.html の JavaScript セクションの <code>CLOUD_FUNCTION_URL</code> を編集してください。
-        </div>
+<h1>AI小論文添削システム</h1>
 
-        <div class="main-content">
-            <!-- Step 1: Camera -->
-            <div class="card">
-                <h2>
-                    <span class="step-number">1</span>
-                    ライブカメラ
-                </h2>
-                <div id="cameraContainer">
-                    <video id="liveCamera" playsinline></video>
-                </div>
-                <div class="camera-controls">
-                    <button class="btn-primary" id="startCameraBtn">📷 カメラ開始</button>
-                    <button class="btn-primary" id="captureBtn" disabled>📸 撮影</button>
-                </div>
-            </div>
+<input
+type="text"
+id="studentName"
+placeholder="氏名">
 
-            <!-- Step 2: OCR -->
-            <div class="card">
-                <h2>
-                    <span class="step-number">2</span>
-                    テキスト認識 (OCR)
-                </h2>
-                <img id="capturedImage" alt="Captured image">
-                <textarea class="ocr-text-area" id="ocrText" placeholder="撮影してOCR処理を実行すると、ここに認識されたテキストが表示されます..."></textarea>
-                <button class="btn-secondary" id="runOcrBtn" disabled>🔍 OCR実行</button>
-            </div>
+<br><br>
 
-            <!-- Step 3: Result -->
-            <div class="card result-section">
-                <h2>
-                    <span class="step-number">3</span>
-                    AI添削結果
-                </h2>
-                <div class="status-message" id="statusMessage"></div>
-                <div class="loading" id="loadingSpinner">
-                    <div class="spinner"></div>
-                    <p>Geminiで添削中...</p>
-                </div>
-                <div class="result-box" id="resultBox">
-                    <h3>📊 添削結果</h3>
-                    <div class="result-content" id="resultContent"></div>
-                </div>
-                <button class="btn-primary" id="submitForReviewBtn" disabled style="margin-top: 15px;">✨ Geminiで添削</button>
-            </div>
-        </div>
-    </div>
+<video
+id="video"
+autoplay
+playsinline> </video>
 
-    <script>
-        // ==================== Configuration ====================
-        const CLOUD_FUNCTION_URL = 'https://asia-northeast1-YOUR_PROJECT_ID.cloudfunctions.net/review-essay';
-        // 上記の YOUR_PROJECT_ID を実際のプロジェクトID、またはデプロイ後のエンドポイント URL に置き換えてください
+<canvas id="captureCanvas"></canvas>
 
-        // URL が設定されていない場合の警告
-        if (CLOUD_FUNCTION_URL.includes('YOUR_PROJECT_ID')) {
-            document.getElementById('configWarning').style.display = 'block';
-        } else {
-            document.getElementById('configWarning').style.display = 'none';
-        }
+<br>
 
-        // ==================== Camera Functions ====================
-        const liveCamera = document.getElementById('liveCamera');
-        const startCameraBtn = document.getElementById('startCameraBtn');
-        const captureBtn = document.getElementById('captureBtn');
-        const capturedImage = document.getElementById('capturedImage');
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+<button onclick="captureEssay()">
+📷 撮影
+</button>
 
-        startCameraBtn.addEventListener('click', async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
-                });
-                liveCamera.srcObject = stream;
-                startCameraBtn.disabled = true;
-                startCameraBtn.textContent = '📷 カメラ実行中';
-                captureBtn.disabled = false;
-                showStatus('カメラが起動しました', 'success');
-            } catch (error) {
-                showStatus('カメラへのアクセスが拒否されました: ' + error.message, 'error');
-            }
-        });
+<button onclick="sendToAI()">
+🤖 AI添削
+</button>
 
-        captureBtn.addEventListener('click', () => {
-            canvas.width = liveCamera.videoWidth;
-            canvas.height = liveCamera.videoHeight;
-            ctx.drawImage(liveCamera, 0, 0);
-            const imageData = canvas.toDataURL('image/jpeg');
-            capturedImage.src = imageData;
-            capturedImage.style.display = 'block';
-            document.getElementById('runOcrBtn').disabled = false;
-            showStatus('画像を撮影しました', 'success');
-        });
+<div id="status">
+OpenCV読込待機中...
+</div>
 
-        // ==================== OCR Functions ====================
-        const ocrText = document.getElementById('ocrText');
-        const runOcrBtn = document.getElementById('runOcrBtn');
-        const submitForReviewBtn = document.getElementById('submitForReviewBtn');
+<h3>補正画像</h3>
 
-        runOcrBtn.addEventListener('click', async () => {
-            showStatus('OCR処理を実行中...', 'info');
-            try {
-                const imageData = capturedImage.src;
-                
-                const Tesseract = window.Tesseract;
-                if (!Tesseract) {
-                    showStatus('OCRライブラリの読み込みに失敗しました。ページをリロードしてください。', 'error');
-                    return;
-                }
+<img id="preview">
 
-                const { createWorker } = Tesseract;
-                const worker = await createWorker('jpn');
-                const result = await worker.recognize(imageData);
-                ocrText.value = result.data.text;
-                await worker.terminate();
+<h3>添削結果</h3>
 
-                submitForReviewBtn.disabled = false;
-                showStatus('OCR処理が完了しました', 'success');
-            } catch (error) {
-                showStatus('OCR処理に失敗しました: ' + error.message, 'error');
-            }
-        });
+<div id="result"></div>
 
-        // ==================== Gemini Review Functions ====================
-        const resultBox = document.getElementById('resultBox');
-        const resultContent = document.getElementById('resultContent');
-        const loadingSpinner = document.getElementById('loadingSpinner');
+<script src="app.js"></script>
 
-        submitForReviewBtn.addEventListener('click', async () => {
-            const text = ocrText.value.trim();
-            if (!text) {
-                showStatus('テキストが空です。OCRを実行してください。', 'error');
-                return;
-            }
-
-            if (CLOUD_FUNCTION_URL.includes('YOUR_PROJECT_ID')) {
-                showStatus('Cloud Functions のエンドポイント URL を設定してください。', 'error');
-                return;
-            }
-
-            showStatus('Geminiで添削中...', 'info');
-            loadingSpinner.classList.add('active');
-            resultBox.classList.remove('active');
-
-            try {
-                const response = await fetch(CLOUD_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ text: text })
-                });
-
-                if (!response.ok) {
-                    throw new Error('APIエラー: ' + response.statusText);
-                }
-
-                const data = await response.json();
-                resultContent.textContent = data.review;
-                resultBox.classList.add('active');
-                showStatus('添削が完了しました', 'success');
-            } catch (error) {
-                showStatus('添削に失敗しました: ' + error.message, 'error');
-                console.error('Error:', error);
-            } finally {
-                loadingSpinner.classList.remove('active');
-            }
-        });
-
-        // ==================== Utility Functions ====================
-        function showStatus(message, type) {
-            const statusMessage = document.getElementById('statusMessage');
-            statusMessage.textContent = message;
-            statusMessage.className = `status-message active ${type}`;
-            setTimeout(() => {
-                statusMessage.classList.remove('active');
-            }, 3000);
-        }
-    </script>
-
-    <!-- Tesseract.js for OCR -->
-    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 </body>
 </html>
