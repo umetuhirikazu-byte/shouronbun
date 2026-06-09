@@ -281,6 +281,15 @@
         .hidden {
             display: none;
         }
+
+        .config-warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -289,6 +298,11 @@
             <h1>📝 小論文添削システム</h1>
             <p>AI採点で小論文を瞬時に添削</p>
         </header>
+
+        <div class="config-warning" id="configWarning">
+            ⚠️ <strong>設定が必要です:</strong> Cloud Functions のエンドポイント URL を設定してください。
+            index.html の JavaScript セクションの <code>CLOUD_FUNCTION_URL</code> を編集してください。
+        </div>
 
         <div class="main-content">
             <!-- Step 1: Camera -->
@@ -338,6 +352,17 @@
     </div>
 
     <script>
+        // ==================== Configuration ====================
+        const CLOUD_FUNCTION_URL = 'https://asia-northeast1-YOUR_PROJECT_ID.cloudfunctions.net/review-essay';
+        // 上記の YOUR_PROJECT_ID を実際のプロジェクトID、またはデプロイ後のエンドポイント URL に置き換えてください
+
+        // URL が設定されていない場合の警告
+        if (CLOUD_FUNCTION_URL.includes('YOUR_PROJECT_ID')) {
+            document.getElementById('configWarning').style.display = 'block';
+        } else {
+            document.getElementById('configWarning').style.display = 'none';
+        }
+
         // ==================== Camera Functions ====================
         const liveCamera = document.getElementById('liveCamera');
         const startCameraBtn = document.getElementById('startCameraBtn');
@@ -380,10 +405,8 @@
         runOcrBtn.addEventListener('click', async () => {
             showStatus('OCR処理を実行中...', 'info');
             try {
-                // Tesseract.js CDNの読み込みと実行
                 const imageData = capturedImage.src;
                 
-                // ここでTesseract.jsを使用してOCR処理
                 const Tesseract = window.Tesseract;
                 if (!Tesseract) {
                     showStatus('OCRライブラリの読み込みに失敗しました。ページをリロードしてください。', 'error');
@@ -415,13 +438,17 @@
                 return;
             }
 
+            if (CLOUD_FUNCTION_URL.includes('YOUR_PROJECT_ID')) {
+                showStatus('Cloud Functions のエンドポイント URL を設定してください。', 'error');
+                return;
+            }
+
             showStatus('Geminiで添削中...', 'info');
             loadingSpinner.classList.add('active');
             resultBox.classList.remove('active');
 
             try {
-                // バックエンドAPIを呼び出し
-                const response = await fetch('/api/review', {
+                const response = await fetch(CLOUD_FUNCTION_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -439,8 +466,7 @@
                 showStatus('添削が完了しました', 'success');
             } catch (error) {
                 showStatus('添削に失敗しました: ' + error.message, 'error');
-                // デモ用の結果を表示
-                showDemoResult();
+                console.error('Error:', error);
             } finally {
                 loadingSpinner.classList.remove('active');
             }
@@ -454,33 +480,6 @@
             setTimeout(() => {
                 statusMessage.classList.remove('active');
             }, 3000);
-        }
-
-        function showDemoResult() {
-            resultContent.textContent = `【デモ結果】
-※バックエンドAPI未接続のため、デモ結果を表示しています
-
-【総評】
-この小論文は全体的に論点が明確で、論理的な展開がなされています。
-
-【改善点】
-1. 序論がやや長い - もう少し簡潔にまとめることをお勧めします
-2. 第2段落の根拠となる統計データを具体的に示してください
-3. 結論部分で、今後の展望をより詳しく述べるとよいでしょう
-
-【良い点】
-✓ 段落構成が明確
-✓ 専門用語を正しく使用している
-✓ 反論への対応が的確
-
-【スコア】
-・論理性: 8/10
-・表現力: 7/10
-・論拠の提示: 6/10
-・構成: 8/10
-───────────────
-総合スコア: 7.3/10`;
-            resultBox.classList.add('active');
         }
     </script>
 
